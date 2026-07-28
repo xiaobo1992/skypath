@@ -28,7 +28,7 @@ skypath/
 ├── backend/
 │   └── src/main/java/com/skypath/
 │       ├── controller/    # REST endpoints (/health, /airports, /itineraries)
-│       ├── service/       # itinerary precompute job + search service
+│       ├── service/       # interface + Impl per service (airport lookup, itinerary precompute job, itinerary search)
 │       ├── repository/    # Micronaut Data repositories
 │       ├── entity/        # JPA entities (Airport, Flight, Itinerary)
 │       ├── dto/            # API response shapes
@@ -105,6 +105,13 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8080 npm run dev
 
 ## Architecture decisions & why
 
+- **Every controller depends on a service interface, not a repository or a
+  concrete class.** `AirportController` → `AirportService`,
+  `ItineraryController` → `ItinerarySearchService`; each interface has
+  exactly one `*Impl` bean that Micronaut DI wires in by type. Consistent
+  controller → service (interface + impl) → repository layering
+  end-to-end, since Micronaut Data repositories are already interfaces
+  with a generated implementation.
 - **Itineraries are precomputed, not traversed live.** A startup job walks
   the flight graph once (grouped by origin airport, so it's not a full
   cross product) and writes every valid connection into an `itineraries`

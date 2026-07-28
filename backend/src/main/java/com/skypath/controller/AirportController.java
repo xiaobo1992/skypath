@@ -1,7 +1,7 @@
 package com.skypath.controller;
 
 import com.skypath.dto.AirportResponse;
-import com.skypath.repository.AirportRepository;
+import com.skypath.service.AirportService;
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Get;
 
@@ -10,16 +10,14 @@ import java.util.List;
 @Controller("/airports")
 public class AirportController {
 
-    private final AirportRepository airportRepository;
+    private final AirportService airportService;
 
-    public AirportController(AirportRepository airportRepository) {
-        this.airportRepository = airportRepository;
+    public AirportController(AirportService airportService) {
+        this.airportService = airportService;
     }
 
     @Get
     public List<AirportResponse> listAirports() {
-        return airportRepository.findAll().stream()
-                .map(AirportResponse::fromEntity)
-                .toList();
+        return airportService.listAirports();
     }
 }

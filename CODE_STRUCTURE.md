@@ -59,9 +59,13 @@ skypath/
 │       │   ├── FlightRepository.java             # CrudRepository<Flight, Long>
 │       │   └── ItineraryRepository.java          # + derived search/sort query
 │       └── service/
-│           ├── ItineraryPrecomputeService.java        # builds the itineraries table (see below)
-│           ├── ItineraryPrecomputeStartupListener.java # runs it once on every boot
-│           └── ItinerarySearchService.java             # validation + repository read -> DTOs
+│           ├── AirportService.java                      # interface: entity -> DTO listing
+│           ├── AirportServiceImpl.java                  # impl of the above
+│           ├── ItineraryPrecomputeService.java         # interface: builds the itineraries table (see below)
+│           ├── ItineraryPrecomputeServiceImpl.java      # impl of the above
+│           ├── ItineraryPrecomputeStartupListener.java  # runs it once on every boot
+│           ├── ItinerarySearchService.java              # interface: validation + repository read -> DTOs
+│           └── ItinerarySearchServiceImpl.java          # impl of the above
 │       resources/
 │       ├── application.properties      # server port, CORS, datasource, flyway, jpa config
 │       ├── logback.xml
@@ -88,6 +92,15 @@ skypath/
 
 ## Backend details
 
+- **Layering**: every controller depends on a `service/` interface, not a
+  concrete class or a repository directly — `AirportController` →
+  `AirportService`, `ItineraryController` → `ItinerarySearchService`. Each
+  interface has exactly one `*Impl` bean; Micronaut DI wires it in by type,
+  so nothing else needs to reference the impl class by name. Repositories
+  (`repository/`) are already interfaces in the Micronaut Data sense (the
+  implementation is generated at compile time), so the same
+  interface/impl separation applies end-to-end: controller → service
+  (interface + impl) → repository (interface, generated impl).
 - **Entities** (`entity/`): `Airport` is keyed by its 3-letter `code`.
   `Flight` and `Itinerary` store all times as `LocalDateTime` (i.e.
   **local airport time, no offset stored** — matches the dataset format).
@@ -118,7 +131,8 @@ skypath/
   so the two can never drift apart. A composite index on
   `(origin_code, destination_code, departure_date, total_duration_minutes)`
   covers the search endpoint's filter + sort in one index scan.
-- **Itinerary precompute** (`service/ItineraryPrecomputeService.java` +
+- **Itinerary precompute** (`service/ItineraryPrecomputeServiceImpl.java`,
+  behind the `ItineraryPrecomputeService` interface, run by
   `ItineraryPrecomputeStartupListener.java`): runs once per boot via a
   Micronaut `StartupEvent` listener. Loads all flights, groups them by
   origin airport, and walks direct → 1-stop → 2-stop combinations using that
