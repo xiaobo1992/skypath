@@ -4,6 +4,7 @@ import com.skypath.dto.ItineraryResponse;
 import com.skypath.repository.AirportRepository;
 import com.skypath.repository.ItineraryRepository;
 import jakarta.inject.Singleton;
+import jakarta.transaction.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -19,6 +20,9 @@ public class ItinerarySearchService {
         this.airportRepository = airportRepository;
     }
 
+    // Keeps the Hibernate session open through the entity->DTO mapping below, since
+    // ItineraryResponse.fromEntity touches lazy Flight/Airport associations on Itinerary.
+    @Transactional
     public List<ItineraryResponse> search(String origin, String destination, LocalDate date) {
         // TODO: replace with proper validation exceptions + a global @Error handler
         // once error response shape is decided (test cases #4 same-airport, #5 invalid code).
