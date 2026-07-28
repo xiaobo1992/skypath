@@ -1,9 +1,10 @@
-import type { Itinerary } from "@/lib/api";
+import type { Airport, Itinerary } from "@/lib/api";
 import { formatDateTime, formatDuration, formatPrice } from "@/lib/format";
 import styles from "./ItineraryCard.module.css";
 
 type ItineraryCardProps = {
   itinerary: Itinerary;
+  airportsByCode: Map<string, Airport>;
 };
 
 const stopLabel = (stops: number) => {
@@ -12,9 +13,10 @@ const stopLabel = (stops: number) => {
   return `${stops} stops`;
 };
 
-export default function ItineraryCard({ itinerary }: ItineraryCardProps) {
+export default function ItineraryCard({ itinerary, airportsByCode }: ItineraryCardProps) {
   const stops = itinerary.segments.length - 1;
   const layoverMinutes = itinerary.layoverMinutes ?? [];
+  const cityOf = (code: string) => airportsByCode.get(code)?.city;
 
   return (
     <li className={styles.card}>
@@ -29,9 +31,19 @@ export default function ItineraryCard({ itinerary }: ItineraryCardProps) {
           <li key={segment.flightNumber} className={styles.segment}>
             <div className={styles.segmentRoute}>
               <span className={styles.time}>{formatDateTime(segment.departureTime)}</span>
-              <span className={styles.airport}>{segment.origin}</span>
+              <span className={styles.airport}>
+                {segment.origin}
+                {cityOf(segment.origin) ? (
+                  <span className={styles.city}> ({cityOf(segment.origin)})</span>
+                ) : null}
+              </span>
               <span className={styles.arrow}>&rarr;</span>
-              <span className={styles.airport}>{segment.destination}</span>
+              <span className={styles.airport}>
+                {segment.destination}
+                {cityOf(segment.destination) ? (
+                  <span className={styles.city}> ({cityOf(segment.destination)})</span>
+                ) : null}
+              </span>
               <span className={styles.time}>{formatDateTime(segment.arrivalTime)}</span>
             </div>
             <div className={styles.segmentMeta}>
@@ -41,7 +53,9 @@ export default function ItineraryCard({ itinerary }: ItineraryCardProps) {
 
             {index < layoverMinutes.length ? (
               <div className={styles.layover}>
-                Layover in {segment.destination}: {formatDuration(layoverMinutes[index])}
+                Layover in {segment.destination}
+                {cityOf(segment.destination) ? ` (${cityOf(segment.destination)})` : ""}:{" "}
+                {formatDuration(layoverMinutes[index])}
               </div>
             ) : null}
           </li>

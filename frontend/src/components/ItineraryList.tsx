@@ -1,12 +1,13 @@
-import type { Itinerary } from "@/lib/api";
+import type { Airport, Itinerary } from "@/lib/api";
 import ItineraryCard from "./ItineraryCard";
 import styles from "./ItineraryList.module.css";
 
 type ItineraryListProps = {
   itineraries: Itinerary[];
+  airportsByCode: Map<string, Airport>;
 };
 
-export default function ItineraryList({ itineraries }: ItineraryListProps) {
+export default function ItineraryList({ itineraries, airportsByCode }: ItineraryListProps) {
   return (
     <>
       <p className={styles.note}>
@@ -16,7 +17,11 @@ export default function ItineraryList({ itineraries }: ItineraryListProps) {
         {itineraries.map((itinerary, index) => (
           // Itineraries aren't individually identified by the API; the flight-number
           // sequence plus index is stable enough as a list key for this read-only list.
-          <ItineraryCard key={`${itinerary.segments.map((s) => s.flightNumber).join("-")}-${index}`} itinerary={itinerary} />
+          <ItineraryCard
+            key={`${itinerary.segments.map((s) => s.flightNumber).join("-")}-${index}`}
+            itinerary={itinerary}
+            airportsByCode={airportsByCode}
+          />
         ))}
       </ul>
     </>

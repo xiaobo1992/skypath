@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import SearchForm from "@/components/SearchForm";
 import ItineraryList from "@/components/ItineraryList";
 import LoadingBar from "@/components/LoadingBar";
@@ -16,6 +16,11 @@ export default function Home() {
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [lastSearch, setLastSearch] = useState<SearchParams | null>(null);
+
+  const airportsByCode = useMemo(
+    () => new Map(airports.map((airport) => [airport.code, airport])),
+    [airports]
+  );
 
   useEffect(() => {
     fetchAirports()
@@ -75,7 +80,7 @@ export default function Home() {
           ) : null}
 
           {!isSearching && !searchError && results && results.length > 0 ? (
-            <ItineraryList itineraries={results} />
+            <ItineraryList itineraries={results} airportsByCode={airportsByCode} />
           ) : null}
         </section>
       </main>
