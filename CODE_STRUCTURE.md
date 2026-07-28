@@ -34,7 +34,10 @@ skypath/
 │   └── src/main/java/com/skypath/
 │       ├── Application.java            # Micronaut entrypoint (Micronaut.run)
 │       ├── controller/
-│       │   └── HealthController.java   # GET /health -> {status, service}
+│       │   ├── HealthController.java   # GET /health -> {status, service}
+│       │   └── AirportController.java  # GET /airports -> List<AirportResponse>
+│       ├── dto/
+│       │   └── AirportResponse.java    # @Serdeable record, entity -> API shape
 │       ├── entity/
 │       │   ├── Airport.java            # @Entity, PK = IATA code (String)
 │       │   └── Flight.java             # @Entity, ManyToOne -> Airport (origin/destination)
@@ -78,16 +81,27 @@ skypath/
 - **Health check**: `endpoints.health.enabled=false` disables Micronaut's
   built-in `/health` management endpoint — `HealthController` is a hand-rolled
   replacement at the same path.
+- **DTOs** (`dto/`): API responses use `@Serdeable` records rather than
+  serializing JPA entities directly (the project only has
+  `micronaut-serde-jackson`, not Jackson databind, so DTOs need
+  `@Serdeable` to be serializable at all). `AirportController` maps
+  `Airport` → `AirportResponse` via `AirportResponse.fromEntity(...)`.
+  Follow the same pattern for a future `FlightResponse` /
+  itinerary response shape rather than exposing `Flight` directly (it holds
+  lazy `@ManyToOne` associations that would need explicit DTO mapping
+  anyway).
 
 ## What's implemented vs. still open
 
 Done: DB schema + Flyway migration, JPA entities/repositories for
-airports/flights, Docker Compose wiring, health endpoint.
+airports/flights, Docker Compose wiring, health endpoint, `GET /airports`
+listing endpoint.
 
 Not yet implemented (per `instructions.md` requirements):
 - A startup loader that reads `flights.json` (path from `FLIGHTS_DATA_PATH`)
   and populates the `airports`/`flights` tables — nothing currently reads
-  that file.
+  that file, so `GET /airports` returns an empty list until data is seeded
+  (e.g. manually via `psql`, or once the loader exists).
 - The actual search endpoint (origin/destination/date → itineraries) and the
   connection-building logic (direct / 1-stop / 2-stop, layover min/max,
   domestic vs. international 45/90-minute rule, same-airport-only
