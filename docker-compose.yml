@@ -1,4 +1,20 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_DB=skypath
+      - POSTGRES_USER=skypath
+      - POSTGRES_PASSWORD=skypath
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U skypath"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   backend:
     build:
       context: ./backend
@@ -8,6 +24,12 @@ services:
       - ./flights.json:/app/flights.json:ro
     environment:
       - FLIGHTS_DATA_PATH=/app/flights.json
+      - DATASOURCES_DEFAULT_URL=jdbc:postgresql://postgres:5432/skypath
+      - DATASOURCES_DEFAULT_USERNAME=skypath
+      - DATASOURCES_DEFAULT_PASSWORD=skypath
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   frontend:
     build:
@@ -18,3 +40,6 @@ services:
       - NEXT_PUBLIC_API_BASE_URL=http://localhost:8080
     depends_on:
       - backend
+
+volumes:
+  pgdata:
