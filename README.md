@@ -226,6 +226,13 @@ fit for a search shaped like this one.
   is pinned to a single fixed date (`2024-03-15`) that's already in the
   past relative to the real calendar — restricting the picker to
   "today or later" would make the only working demo date unselectable.
+- **Search by city instead of just airport code.** A city like New York
+  has multiple airports (JFK, LGA, EWR); today a search only matches the
+  exact airport code entered, so a user has to already know which one
+  they want. Searching by city would need to expand to every airport in
+  that city and merge/dedupe the resulting itineraries — the `airports`
+  table already has a `city` column, so the main work would be in the
+  search service and the query, not the schema.
 
 ## Test cases
 
