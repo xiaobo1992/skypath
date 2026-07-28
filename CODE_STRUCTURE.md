@@ -48,7 +48,8 @@ skypath/
 │       ├── application.properties      # server port, CORS, datasource, flyway, jpa config
 │       ├── logback.xml
 │       └── db/migration/
-│           └── V1__create_airports_and_flights.sql   # Flyway baseline schema
+│           ├── V1__create_airports_and_flights.sql   # Flyway baseline schema
+│           └── V2__seed_airports_and_flights.sql      # data generated from flights.json
 │   └── src/test/java/com/skypath/BackendTest.java     # smoke test: app boots
 └── frontend/
     └── src/app/                # default create-next-app scaffold — not yet built out
@@ -73,6 +74,15 @@ skypath/
   destination, indexes on `origin_code`, `destination_code`,
   `departure_time`, and a composite `(origin_code, destination_code,
   departure_time)` index sized for route+date lookups).
+- **Seed data** (`db/migration/V2__seed_airports_and_flights.sql`): a
+  Flyway migration that inserts all 25 airports and 302 of the 303 flights
+  from `flights.json` directly (generated once from the JSON, not loaded at
+  runtime — see "still open" below for the alternative). One row
+  (`SP995`, origin `JKF`) is intentionally skipped: `JKF` isn't in the
+  25-airport list (almost certainly a typo of `JFK` in the source data), and
+  inserting it would violate the `fk_flights_origin` foreign key. This is one
+  of the dataset's known "quirks" per `instructions.md` — noted in a comment
+  at the bottom of the migration file rather than silently dropped.
 - **Config** (`application.properties`): CORS is locked to
   `http://localhost:3000` (the frontend dev/compose origin). Flyway runs
   migrations on startup (`baseline-on-migrate=true`); Hibernate is set to
@@ -93,15 +103,18 @@ skypath/
 
 ## What's implemented vs. still open
 
-Done: DB schema + Flyway migration, JPA entities/repositories for
-airports/flights, Docker Compose wiring, health endpoint, `GET /airports`
-listing endpoint.
+Done: DB schema + Flyway migrations (schema + seed data), JPA
+entities/repositories for airports/flights, Docker Compose wiring, health
+endpoint, `GET /airports` listing endpoint (now returns real data since
+`V2__seed_airports_and_flights.sql` runs on startup).
 
 Not yet implemented (per `instructions.md` requirements):
-- A startup loader that reads `flights.json` (path from `FLIGHTS_DATA_PATH`)
-  and populates the `airports`/`flights` tables — nothing currently reads
-  that file, so `GET /airports` returns an empty list until data is seeded
-  (e.g. manually via `psql`, or once the loader exists).
+- The seed data is baked into a migration rather than read from
+  `flights.json` at runtime — `FLIGHTS_DATA_PATH` /
+  `./flights.json:/app/flights.json:ro` in `docker-compose.yml` are wired up
+  but nothing reads that path yet. Fine for this fixed dataset, but if
+  `flights.json` should be swappable without a new migration, a runtime
+  loader would be needed instead (or in addition).
 - The actual search endpoint (origin/destination/date → itineraries) and the
   connection-building logic (direct / 1-stop / 2-stop, layover min/max,
   domestic vs. international 45/90-minute rule, same-airport-only
