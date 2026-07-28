@@ -1,0 +1,69 @@
+.form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 16px;
+  padding: 20px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 140px;
+}
+
+.field label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.field input {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--background);
+  color: var(--text-primary);
+  font-size: 15px;
+  text-transform: uppercase;
+}
+
+.field input[type="date"] {
+  text-transform: none;
+}
+
+.field input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.submit {
+  padding: 11px 24px;
+  border-radius: 8px;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  height: 42px;
+}
+
+.submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.submit:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.error {
+  flex-basis: 100%;
+  color: var(--error);
+  font-size: 14px;
+}

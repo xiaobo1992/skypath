@@ -1,0 +1,82 @@
+.card {
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.summary {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.stops {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.duration {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.price {
+  margin-left: auto;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.segments {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.segment {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.segmentRoute {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.arrow {
+  color: var(--text-secondary);
+}
+
+.airport {
+  letter-spacing: 0.02em;
+}
+
+.segmentMeta {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.layover {
+  margin-top: 4px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: var(--layover-bg);
+  color: var(--text-secondary);
+  font-size: 13px;
+  width: fit-content;
+}

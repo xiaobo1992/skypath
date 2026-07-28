@@ -1,5 +1,6 @@
 package com.skypath.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.skypath.entity.Itinerary;
 import io.micronaut.serde.annotation.Serdeable;
 
@@ -7,6 +8,10 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
+// layoverMinutes is legitimately empty for direct (0-stop) itineraries; without ALWAYS,
+// Micronaut Serde's default NON_EMPTY inclusion drops the key from the JSON entirely
+// instead of emitting `[]`, which breaks clients that expect the field to always be present.
+@JsonInclude(JsonInclude.Include.ALWAYS)
 @Serdeable
 public record ItineraryResponse(
         String origin,
