@@ -24,18 +24,22 @@ public class ItinerarySearchService {
     // ItineraryResponse.fromEntity touches lazy Flight/Airport associations on Itinerary.
     @Transactional
     public List<ItineraryResponse> search(String origin, String destination, LocalDate date) {
-        // TODO: replace with proper validation exceptions + a global @Error handler
-        // once error response shape is decided (test cases #4 same-airport, #5 invalid code).
-        if (origin.equalsIgnoreCase(destination)) {
+        String originCode = origin.toUpperCase();
+        String destinationCode = destination.toUpperCase();
+
+        if (originCode.equals(destinationCode)) {
             return List.of();
         }
-        if (!airportRepository.existsById(origin) || !airportRepository.existsById(destination)) {
-            throw new IllegalArgumentException("Unknown airport code");
+        if (!airportRepository.existsById(originCode)) {
+            throw new IllegalArgumentException("Unknown origin airport code: " + originCode);
+        }
+        if (!airportRepository.existsById(destinationCode)) {
+            throw new IllegalArgumentException("Unknown destination airport code: " + destinationCode);
         }
 
         return itineraryRepository
                 .findByOriginCodeAndDestinationCodeAndDepartureDateOrderByTotalDurationMinutesAsc(
-                        origin, destination, date)
+                        originCode, destinationCode, date)
                 .stream()
                 .map(ItineraryResponse::fromEntity)
                 .toList();
