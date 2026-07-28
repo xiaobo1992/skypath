@@ -5,18 +5,6 @@ returns valid direct, 1-stop, and 2-stop itineraries — with layover and
 timezone rules enforced — sorted by total travel time. Built for the
 take-home spec in [instructions.md](instructions.md).
 
-## Stack
-
-```
-frontend (Next.js, TypeScript)  --HTTP-->  backend (Micronaut, Java 25)  -->  Postgres
-        :3000                                      :8080                       :5432
-```
-
-- **Frontend** — Next.js 16 / React 19, App Router, TypeScript, CSS Modules.
-- **Backend** — Micronaut 5 (Netty), Java 25, Hibernate JPA, Flyway migrations.
-- **Database** — Postgres 16.
-- **Orchestration** — Docker Compose runs all three services together.
-
 ## Project structure
 
 ```
@@ -103,24 +91,90 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8080 npm run dev
   - Unknown airport code → `400 { "error": "..." }`.
   - Same origin and destination → `200 []`.
 
-## Architecture decisions & why
+## Architecture 
 
-- **Every controller depends on a service interface, not a repository or a
-  concrete class.** `AirportController` → `AirportService`,
-  `ItineraryController` → `ItinerarySearchService`; each interface has
-  exactly one `*Impl` bean that Micronaut DI wires in by type. Consistent
-  controller → service (interface + impl) → repository layering
-  end-to-end, since Micronaut Data repositories are already interfaces
-  with a generated implementation.
-- **Itineraries are precomputed, not traversed live.** A startup job walks
-  the flight graph once (grouped by origin airport, so it's not a full
-  cross product) and writes every valid connection into an `itineraries`
-  table, applying the layover/timezone/domestic-international rules at
-  write time. The search endpoint is then a single indexed read + sort —
-  simple, fast, and easy to reason about — at the cost of a rebuild step
-  whenever the underlying flight data changes (fine for a fixed dataset
-  seeded once at startup; would need re-triggering on data changes in a
-  system where flights are added/edited live).
+```
+frontend (Next.js, TypeScript)  --HTTP-->  backend (Micronaut, Java 25)  -->  Postgres
+        :3000                                      :8080                       :5432
+```
+
+- **Frontend** — Next.js 16 / React 19, App Router, TypeScript, CSS Modules.
+- **Backend** — Micronaut 5 (Netty), Java 25, Hibernate JPA, Flyway migrations.
+- **Database** — Postgres 16.
+- **Orchestration** — Docker Compose runs all three services together.
+
+**Why Micronaut for the backend:**
+1. **Followed the existing backend framework** rather than swapping it out.
+   The repo's scaffold (`build.gradle`, `Dockerfile`, `application.properties`)
+   was already set up on Micronaut 5 before this feature work started, so
+   sticking with it avoided a framework migration that wouldn't have added
+   value to the actual take-home requirements.
+2. **Integrates with the database very well.** `micronaut-data-hibernate-jpa`
+   gives repository interfaces with derived queries (e.g.
+   `ItineraryRepository.findByOriginCodeAndDestinationCodeAndDepartureDate
+   OrderByTotalDurationMinutesAsc`) without hand-written SQL or boilerplate
+   DAO code, and `micronaut-jdbc-hikari` wires in HikariCP connection
+   pooling out of the box — both just declarative dependencies, no manual
+   setup.
+3. **Integrates with Flyway for schema upgrades.** The `micronaut-flyway`
+   module runs versioned SQL migrations (`V1__...`, `V2__...`, `V3__...`)
+   automatically on startup before the app accepts traffic, and pairs with
+   `hibernate.hbm2ddl.auto=validate` so Hibernate only checks the schema
+   matches rather than silently auto-generating it — schema changes have
+   to go through an explicit migration file, which keeps schema evolution
+   auditable and reproducible across environments.
+
+**Why Next.js for the frontend:** it follows React, the major/most widely
+used frontend framework, and I don't have deep frontend experience — but
+Next.js is straightforward to pick up (file-based routing, `'use client'`
+for interactive components, CSS Modules) without needing to hand-configure
+a bundler or router first, which mattered more here than picking the
+"most powerful" option.
+
+**Why Postgres for the database:** it's relational and supports composite
+indexes, which this search is built around — the `itineraries` table's
+`idx_itineraries_search` index covers `(origin_code, destination_code,
+departure_date, total_duration_minutes)` in one index, so a search is a
+single index scan that's already sorted by duration, and `flights` has a
+similar `(origin_code, destination_code, departure_time)` index for the
+precompute job's own lookups. A NoSQL store like DynamoDB is built around
+a single partition key + sort key (plus a limited number of secondary
+indexes); it doesn't support an arbitrary multi-column composite index like
+this one, so a query filtering/sorting on four columns at once would need
+either a much wider partition key baked in ahead of time or a scan — worse
+fit for a search shaped like this one.
+
+## TradeOffs
+- **Precomputed itineraries vs. live graph traversal per search.**
+  - Chose precompute: walk the flight graph once at startup (grouped by
+    origin airport, not a full cross-product), apply the
+    layover/timezone/domestic-international rules once, and write every
+    valid direct/1-stop/2-stop itinerary into an indexed table. The search
+    endpoint then does a single indexed read + sort, with no rule
+    evaluation, graph walk, or timezone/duration math at request time —
+    every `Instant` conversion and layover calculation already happened
+    once at precompute time instead of being redone on every API call.
+  - Schema shape: a single wide, denormalized itinerary row
+    (`flight_1_id`..`flight_3_id`, `layover_1_minutes`/`layover_2_minutes`)
+    that carries the relevant flight legs and layovers directly, so the
+    search endpoint reads one row straight off the index with no extra
+    join — that's what keeps read latency low. The cost is some rigidity
+    (capped at 2 stops, a few nullable columns), which is acceptable since
+    the spec caps connections at 2 stops anyway.
+  - Cost: staleness risk — the table is only as fresh as the last
+    recompute. Currently sidestepped by wiping and rebuilding the whole
+    table on every boot, which is fine because the dataset is fixed and
+    seeded once via Flyway (~2.8k itineraries from 302 flights, well under
+    a second).
+  - Doesn't scale indefinitely: 2-stop itineraries grow combinatorially
+    with the flight count, so a much larger or rolling schedule would blow
+    up both the precompute time and the table size.
+  - Where I'd draw the line differently: if flights were being added or
+    edited live rather than loaded once at boot, I'd either trigger an
+    incremental recompute on write (reprocessing only the itineraries that
+    touch the changed flight, via the `flight_id` indexes already in
+    place) or fall back to computing on demand with an in-memory route
+    index and caching hot origin/destination/date combinations.
 - **All timezone math goes through each airport's IANA zone, never through
   the raw timestamp.** Both `Flight` and `Itinerary` store times as
   `LocalDateTime` — local wall-clock time with no offset, matching the
@@ -128,42 +182,23 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8080 npm run dev
   `Instant`s using `Airport.timezone` first. This is what makes the
   `SYD→LAX` date-line-crossing case (arrival appears earlier than
   departure in local time) resolve to the correct elapsed duration instead
-  of a negative or nonsensical one.
-- **DTOs, not entities, cross the API boundary.** `Flight`/`Itinerary`
-  hold lazy JPA associations (`@ManyToOne` to `Airport`, `Flight`); response
-  shapes are separate `@Serdeable` records built via `fromEntity(...)`,
-  keeping persistence concerns out of the API contract.
-- **Frontend fetches directly from the browser, not via Next.js server-side
-  fetching.** `NEXT_PUBLIC_API_BASE_URL` is a browser-facing URL
-  (`http://localhost:8080`); using it inside a Next.js Server
-  Component/route handler running in the frontend container wouldn't
-  resolve correctly (that container can't reach `localhost:8080` on the
-  host). Keeping all data fetching in client components sidesteps that.
-
-## Tradeoffs considered
-
-- **Wide single-row itinerary schema vs. a normalized header+segments
-  table.** Went with one row per itinerary (`flight_1_id`..`flight_3_id`,
-  `layover_1_minutes`/`layover_2_minutes`) instead of a separate
-  segments table, trading some rigidity (capped at 2 stops, a few nullable
-  columns) for a read path with zero joins — reasonable given the spec caps
-  connections at 2 stops.
-- **Full rebuild vs. incremental recompute.** The precompute job truncates
-  and rebuilds the whole `itineraries` table every boot rather than
-  computing incrementally. Simpler and correct for this dataset size
-  (~2.8k itineraries from 302 flights, well under a second); would need
-  revisiting if the flight dataset were large or mutated frequently at
-  runtime.
-- **No caching layer.** Given the entire search space fits comfortably in
-  one indexed Postgres table, adding an application-level cache would be
-  premature — the database index is already the fast path.
-- **Domestic vs. international connection rule.** instructions.md specifies
-  this by example (`JFK→ORD→LAX = domestic`, `JFK→LHR→CDG = international`)
-  rather than mechanically. The rule implemented — the arriving flight's
-  origin country and the departing flight's destination country must both
-  match the connecting airport's country — satisfies both examples but is
-  an interpretation, not a spec quote; flagged in CODE_STRUCTURE.md as
-  worth re-confirming.
+  of a negative or nonsensical one — the tradeoff is that every touch
+  point has to remember to convert through the zone rather than compare
+  timestamps directly, which is easy to get wrong if a future change adds
+  a new time calculation without following the same pattern.
+- **Invalid data handling: reject at the database, not filter at read
+  time.** The `itineraries` table has a `chk_stop_count_matches_flights`
+  CHECK constraint tying `stop_count` to which `flight_2_id`/`flight_3_id`
+  columns are populated, and `origin_code`/`destination_code` are foreign
+  keys into `airports`. I'd rather an invalid row fail to insert at
+  precompute time than exist in the table and need to be filtered out (or
+  worse, silently shown) later — there's no code path where a user can end
+  up choosing between a valid and an invalid itinerary, because an invalid
+  one can never be persisted in the first place. The cost is that the
+  constraint has to be kept in sync with the precompute logic by hand (a
+  code change that produces a row shaped differently would fail loudly at
+  insert time rather than being caught by a type system), but a loud
+  failure at the source beats quietly wrong data reaching the API.
 
 ## What I'd improve with more time
 
@@ -172,19 +207,25 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8080 npm run dev
   (layover boundary values, the no-revisit-an-airport rule, date-line
   crossing) or any frontend tests. All of this session's verification was
   manual/browser-driven rather than in a test suite.
-- **Read `flights.json` at runtime instead of baking it into a Flyway
-  migration.** `FLIGHTS_DATA_PATH` is already wired through
-  `docker-compose.yml` but nothing reads it yet — the seed data is
-  generated once into `V2__seed_airports_and_flights.sql`. Fine for this
-  fixed dataset; a runtime loader would be needed to make the dataset
-  swappable without a new migration, and the precompute job would need to
-  run after that load rather than only on `StartupEvent`.
 - **Pagination on `/itineraries`.** Not needed at this dataset's scale, but
   a route like `BOS→SEA` with many valid connections would benefit from it
   at a larger scale.
 - **Trip-level result grouping/filtering in the UI** (e.g. filter by number
   of stops, max price, airline) — the API already returns everything
   needed to build this, just not exposed in the UI yet.
+- **An application-level caching layer**, if the dataset or query volume
+  grew enough that the indexed Postgres read stopped being fast enough on
+  its own — not needed today, but worth revisiting under load.
+- **Seat availability** (seats left, or sold out) isn't modeled anywhere in
+  the dataset or the API today — every itinerary is treated as bookable.
+  Adding it would touch the schema, the precompute job, and the UI; left
+  as a future discussion rather than a today decision.
+- **Disable past dates in the date picker.** The date input has no `min`
+  today, so a user can pick a date before "now" even though a flight
+  can't be booked in the past. Not wired up yet because the seed dataset
+  is pinned to a single fixed date (`2024-03-15`) that's already in the
+  past relative to the real calendar — restricting the picker to
+  "today or later" would make the only working demo date unselectable.
 
 ## Test cases
 
