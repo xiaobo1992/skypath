@@ -39,6 +39,10 @@
   min-height: 40px;
 }
 
+.loading {
+  padding-top: 8px;
+}
+
 .status {
   color: var(--text-secondary);
   font-size: 15px;

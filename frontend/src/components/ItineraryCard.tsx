@@ -1,5 +1,5 @@
 import type { Itinerary } from "@/lib/api";
-import { formatDuration, formatPrice, formatTime } from "@/lib/format";
+import { formatDateTime, formatDuration, formatPrice } from "@/lib/format";
 import styles from "./ItineraryCard.module.css";
 
 type ItineraryCardProps = {
@@ -28,11 +28,11 @@ export default function ItineraryCard({ itinerary }: ItineraryCardProps) {
         {itinerary.segments.map((segment, index) => (
           <li key={segment.flightNumber} className={styles.segment}>
             <div className={styles.segmentRoute}>
-              <span className={styles.time}>{formatTime(segment.departureTime)}</span>
+              <span className={styles.time}>{formatDateTime(segment.departureTime)}</span>
               <span className={styles.airport}>{segment.origin}</span>
               <span className={styles.arrow}>&rarr;</span>
               <span className={styles.airport}>{segment.destination}</span>
-              <span className={styles.time}>{formatTime(segment.arrivalTime)}</span>
+              <span className={styles.time}>{formatDateTime(segment.arrivalTime)}</span>
             </div>
             <div className={styles.segmentMeta}>
               {segment.flightNumber} &middot; {segment.airline}

@@ -8,14 +8,22 @@ export function formatTime(localDateTime: string): string {
   return `${hour}:${minuteStr} ${period}`;
 }
 
+const MONTHS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
 export function formatDate(localDateTime: string): string {
   const datePart = localDateTime.split("T")[0] ?? "";
   const [year, month, day] = datePart.split("-").map(Number);
-  const months = [
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-  ];
-  return `${months[month - 1]} ${day}, ${year}`;
+  return `${MONTHS[month - 1]} ${day}`;
+}
+
+// Segment times are each in their own airport's local time, so a connection or an
+// overnight/date-line-crossing flight can land on a different calendar date than it
+// departed (see instructions.md's SYD->LAX case) - always show the date alongside the time.
+export function formatDateTime(localDateTime: string): string {
+  return `${formatDate(localDateTime)}, ${formatTime(localDateTime)}`;
 }
 
 export function formatDuration(totalMinutes: number): string {

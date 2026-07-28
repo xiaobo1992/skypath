@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import SearchForm from "@/components/SearchForm";
 import ItineraryList from "@/components/ItineraryList";
+import LoadingBar from "@/components/LoadingBar";
 import { ApiError, fetchAirports, searchItineraries } from "@/lib/api";
 import type { Airport, Itinerary, SearchParams } from "@/lib/api";
 import styles from "./page.module.css";
@@ -56,7 +57,12 @@ export default function Home() {
         <SearchForm airports={airports} isLoading={isSearching} onSearch={handleSearch} />
 
         <section className={styles.results} aria-live="polite">
-          {isSearching ? <p className={styles.status}>Searching for flights…</p> : null}
+          {isSearching ? (
+            <div className={styles.loading}>
+              <LoadingBar />
+              <p className={styles.status}>Searching for flights…</p>
+            </div>
+          ) : null}
 
           {!isSearching && searchError ? (
             <p className={`${styles.status} ${styles.errorStatus}`}>{searchError}</p>
