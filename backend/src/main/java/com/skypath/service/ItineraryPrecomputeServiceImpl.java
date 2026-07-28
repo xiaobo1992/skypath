@@ -53,6 +53,9 @@ public class ItineraryPrecomputeServiceImpl implements ItineraryPrecomputeServic
             itineraries.add(buildItinerary(List.of(first), null, null));
 
             for (Flight second : flightsByOrigin.getOrDefault(first.getDestination().getCode(), List.of())) {
+                if (second.getDestination().getCode().equals(first.getOrigin().getCode())) {
+                    continue; // don't fly back to the origin airport as the connection
+                }
                 Integer layover1 = layoverMinutes(first, second);
                 if (layover1 == null) {
                     continue;
