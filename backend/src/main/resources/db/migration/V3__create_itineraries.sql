@@ -1,8 +1,8 @@
 CREATE TABLE itineraries (
     id                      BIGSERIAL PRIMARY KEY,
 
-    origin_code             CHAR(3)       NOT NULL REFERENCES airports(code),
-    destination_code        CHAR(3)       NOT NULL REFERENCES airports(code),
+    origin_code             VARCHAR(10)   NOT NULL REFERENCES airports(code),
+    destination_code        VARCHAR(10)   NOT NULL REFERENCES airports(code),
     departure_date          DATE          NOT NULL,  -- local date at origin; what the search filters on
 
     stop_count              SMALLINT      NOT NULL CHECK (stop_count BETWEEN 0 AND 2),
